@@ -118,6 +118,25 @@ CREATE TABLE IF NOT EXISTS feedback (
     CONSTRAINT chk_feedback_rating CHECK (rating BETWEEN 1 AND 5)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS diet_plan_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(150) NOT NULL,
+    profile_json TEXT NOT NULL,
+    plan_json TEXT NOT NULL,
+    calorie_target INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (email) REFERENCES users(email)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS admins (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 
 
 
