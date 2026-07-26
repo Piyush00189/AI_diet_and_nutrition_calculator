@@ -4,6 +4,8 @@ import traceback
 import mysql.connector
 import customtkinter as ctk
 
+# once, before the splash screen even appears, rather than lazily the
+# first time some page happens to touch the DB.
 import database
 
 from splash_screen import SplashScreen
