@@ -33,7 +33,7 @@ COLOR_WHITE = "#F5FBFA"
 COLOR_TRACK = "#155953"         # progress bar track color
 
 WINDOW_W, WINDOW_H = 480, 560
-DURATION_MS = 3000               # total splash duration
+DURATION_MS = 1500              # total splash duration
 TICK_MS = 16                     # ~60fps animation tick
 
 
