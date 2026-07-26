@@ -1,0 +1,102 @@
+CREATE DATABASE diet_app;
+
+use diet_app;
+
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    age INT NOT NULL,
+    gender VARCHAR(20) NOT NULL,
+    height_cm FLOAT NOT NULL,
+    weight_kg FLOAT NOT NULL,
+    activity_level VARCHAR(30) NOT NULL,
+    fitness_goal VARCHAR(30) NOT NULL,
+    profile_picture_path VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS water_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(150) NOT NULL,
+    log_date DATE NOT NULL,
+    total_ml FLOAT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_day (email, log_date),
+    FOREIGN KEY (email) REFERENCES users(email)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+ 
+CREATE TABLE IF NOT EXISTS calorie_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(150) NOT NULL,
+    log_date DATE NOT NULL,
+    total_kcal FLOAT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_day (email, log_date),
+    FOREIGN KEY (email) REFERENCES users(email)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+
+
+CREATE TABLE IF NOT EXISTS meal_plans (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(150) NOT NULL,
+    day_of_week VARCHAR(10) NOT NULL,
+    meal_type VARCHAR(20) NOT NULL,
+    meal_description TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_slot (email, day_of_week, meal_type),
+    FOREIGN KEY (email) REFERENCES users(email)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS bmi_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(150) NOT NULL,
+    height_cm FLOAT NOT NULL,
+    weight_kg FLOAT NOT NULL,
+    bmi FLOAT NOT NULL,
+    category VARCHAR(30) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (email) REFERENCES users(email)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS calorie_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(150) NOT NULL,
+    age INT NOT NULL,
+    gender VARCHAR(20) NOT NULL,
+    height_cm FLOAT NOT NULL,
+    weight_kg FLOAT NOT NULL,
+    activity_level VARCHAR(30) NOT NULL,
+    bmr FLOAT NOT NULL,
+    tdee FLOAT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (email) REFERENCES users(email)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS feedback (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(150) NOT NULL,
+    rating TINYINT NOT NULL,
+    comment TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (email) REFERENCES users(email)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT chk_feedback_rating CHECK (rating BETWEEN 1 AND 5)
+)ENGINE=InnoDB;
+
+select * from users;
+
+truncate table bmi_history;
+
+

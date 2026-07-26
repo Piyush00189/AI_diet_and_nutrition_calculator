@@ -1,0 +1,12 @@
+customtkinter==5.2.2
+mysql-connector-python
+Pillow==12.3.0
+protobuf
+python-dotenv==1.2.2
+bcrypt
+google-generativeai
+matplotlib
+numpy
+opencv-python
+onnxruntime
+insightface
