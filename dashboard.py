@@ -9,11 +9,25 @@ Shows: user profile summary, BMI, calorie goal, water intake,
 quick action cards, recent meals, a motivational quote, and a
 health summary.
 
-LIVE DATA: for a logged-in user (i.e. `user_data`/session has a real
-`email`), BMI, calorie goal + calories consumed today, water intake
-today, activity streak, and recent meals are all pulled live from
-MySQL via database.py (see `_load_live_data`). DEFAULT_USER_DATA is
-only ever shown as-is for a guest/no-session run of this file.
+PERFORMANCE / LIVE DATA:
+Building this page used to call `_load_live_data()` synchronously in
+__init__, which does ~7 sequential MySQL round trips (user row, BMI
+history, calorie history, calories-today, water-today, streak,
+recent food log) before a single widget was drawn — every time you
+navigated back to the dashboard from any other page, the window sat
+blank/unresponsive until all of that finished.
+
+Now the page renders IMMEDIATELY using whatever `user_data` was
+already passed in (i.e. the values from the last time it loaded, or
+DEFAULT_USER_DATA for a guest run) — no DB calls block __init__ or
+widget construction. Once the window is up, `_start_live_data_refresh()`
+kicks off a background thread that does the same DB work off the UI
+thread; when it finishes, `_apply_live_data()` is scheduled back onto
+the Tk main thread via `self.after(0, ...)` and patches just the
+affected labels/progress bars/meal rows in place. So on a fast
+connection the numbers refresh a beat after the page appears; on a
+slow one you still get an instantly responsive window instead of a
+frozen one. Skipped entirely for a guest session (no real email).
 
 The window opens maximized to fill the screen (see _maximize_window)
 instead of a fixed 1100x700 — it still has a sane minimum size via
@@ -32,9 +46,10 @@ Run:
 """
 
 import random
+import threading
 from datetime import datetime
 import os
-from tkinter import messagebox
+from tkinter import messagebox, TclError
 
 import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageOps
@@ -77,7 +92,7 @@ QUOTES = [
 ]
 
 # Only ever shown as-is for a guest / no-session run — a logged-in
-# user's real stats overwrite these in _load_live_data().
+# user's real stats overwrite these once the live-data thread returns.
 DEFAULT_USER_DATA = {
     "full_name": "Guest User",
     "email": "guest@example.com",
@@ -105,31 +120,19 @@ class DashboardPage(ctk.CTk):
         # Prefer explicitly-passed user_data; otherwise pull whoever is
         # currently logged in from session.py; otherwise fall back to
         # the placeholder guest data (e.g. when running this file standalone).
+        # NOTE: this is deliberately the only data used to build the initial
+        # UI — no DB calls happen here, so the window appears instantly.
+        # See _start_live_data_refresh() for how fresh values arrive after.
         self.user_data = {
             **DEFAULT_USER_DATA,
             **(user_data or session.get_current_user() or {}),
         }
-        self._load_live_data()
         self.active_nav = "Dashboard"
 
         ctk.set_appearance_mode("dark")
         self.title("AI Diet Chart & Nutrition Calculator — Dashboard")
         self.configure(fg_color=COLOR_BG)
         self.minsize(MIN_W, MIN_H)
-
-        # Fully transparent from the start (not withdrawn — withdraw()
-        # has its own problems, see admin_dashboard.py's history) so
-        # nothing is visible yet while the window is still small/
-        # unmaximized and its widgets are still being built. It's
-        # revealed with a short fade-in at the end of _maximize_window,
-        # once maximizing has actually taken effect — this is what
-        # smooths the "pop into view" feel when this window replaces
-        # whatever page just destroyed itself. Silently does nothing on
-        # window managers that don't support per-window alpha.
-        try:
-            self.attributes("-alpha", 0.0)
-        except Exception:
-            pass
 
         # Deferred, not called directly: CustomTkinter schedules some of
         # its own window/DPI setup via internal after() calls right after
@@ -148,6 +151,10 @@ class DashboardPage(ctk.CTk):
         self._build_sidebar()
         self._build_main_area()
 
+        # Kick off the DB refresh only after every widget exists, so the
+        # background thread has real labels/bars to patch once it returns.
+        self._start_live_data_refresh()
+
     # ============================================================ WINDOW
     def _maximize_window(self):
         """Opens the dashboard filling the screen instead of a fixed
@@ -156,9 +163,7 @@ class DashboardPage(ctk.CTk):
         support that state string and raises a TclError, so it falls
         back to `-zoomed` (some Linux WMs use this attribute instead),
         and finally to manually sizing/positioning the window to the
-        full screen if neither is available. Whichever path succeeds,
-        it finishes by fading the (until now fully transparent) window
-        into view — see __init__."""
+        full screen if neither is available."""
         maximized = False
         try:
             self.state("zoomed")
@@ -178,79 +183,88 @@ class DashboardPage(ctk.CTk):
             screen_h = self.winfo_screenheight()
             self.geometry(f"{screen_w}x{screen_h}+0+0")
 
-        self._fade_in()
-
-    def _fade_in(self, duration_ms=180, steps=12):
-        """Ramps window opacity from 0 to 1 over `duration_ms` instead of
-        just snapping to visible — a smoother transition into this page
-        than the abrupt cut of the previous page's window disappearing
-        and this one appearing instantly. No-ops quietly if this window
-        manager doesn't support per-window alpha (some Linux WMs don't,
-        without a compositor running)."""
-        step_delay = max(1, duration_ms // steps)
-
-        def _step(i=0):
-            try:
-                self.attributes("-alpha", min(1.0, (i + 1) / steps))
-            except Exception:
-                return
-            if i + 1 < steps:
-                self.after(step_delay, lambda: _step(i + 1))
-
-        _step()
-
-    # =============================================================== DATA
-    def _load_live_data(self):
-        """Overrides the DEFAULT_USER_DATA placeholders with real,
-        computed values from MySQL for the logged-in user: latest BMI,
-        calorie goal (TDEE + fitness-goal adjustment) and calories
-        consumed today, water goal and water intake today, activity
-        streak, and recent logged meals.
-
-        Skipped entirely for a guest session (no real email). Any DB
-        error is swallowed per-section so a MySQL hiccup degrades to
-        "keep whatever value was already there" instead of crashing
-        the dashboard.
-        """
+    # ================================================== LIVE DATA (async)
+    def _start_live_data_refresh(self):
+        """Fires off the MySQL work on a background thread so it never
+        blocks the UI. Skipped for a guest session (no real email) since
+        there's nothing to look up. A snapshot of user_data is captured
+        here (not read later from the thread) to avoid any race with the
+        main thread mutating self.user_data while the query runs."""
         email = self.user_data.get("email")
         if not email or email == DEFAULT_USER_DATA["email"]:
             return
+
+        base_snapshot = dict(self.user_data)
+        threading.Thread(
+            target=self._fetch_live_data_worker,
+            args=(email, base_snapshot),
+            daemon=True,
+        ).start()
+
+    def _fetch_live_data_worker(self, email, base):
+        """Runs on the background thread — MySQL calls only, no Tk calls.
+        Hands the result back to the main thread via self.after(0, ...),
+        which is the only safe way to touch widgets from another thread.
+        If this window has already been destroyed (user navigated away
+        before the query finished) the after() call is skipped."""
+        try:
+            updates = self._fetch_live_data(email, base)
+        except Exception:
+            updates = {}
+
+        try:
+            self.after(0, lambda: self._apply_live_data(updates))
+        except (TclError, RuntimeError):
+            pass  # window is gone — nothing to update
+
+    def _fetch_live_data(self, email, base):
+        """Computes fresh values from MySQL for the logged-in user:
+        latest BMI, calorie goal (TDEE + fitness-goal adjustment) and
+        calories consumed today, water goal and water intake today,
+        activity streak, and recent logged meals. Returns a dict of only
+        the fields it managed to compute — never mutates self.user_data
+        directly (that happens back on the main thread in
+        _apply_live_data). Any DB error is swallowed per-section so a
+        MySQL hiccup just means that section keeps its cached value
+        instead of crashing the refresh.
+        """
+        updates = {}
 
         try:
             user_row = database.get_user_by_email(email) or {}
         except mysql.connector.Error:
             user_row = {}
 
-        height_cm = user_row.get("height_cm") or self.user_data.get("height_cm")
-        weight_kg = user_row.get("weight_kg") or self.user_data.get("weight_kg")
-        age = user_row.get("age") or self.user_data.get("age")
-        gender = user_row.get("gender") or self.user_data.get("gender")
-        activity_level = user_row.get("activity_level") or self.user_data.get("activity_level")
-        fitness_goal = user_row.get("fitness_goal") or self.user_data.get("fitness_goal")
+        height_cm = user_row.get("height_cm") or base.get("height_cm")
+        weight_kg = user_row.get("weight_kg") or base.get("weight_kg")
+        age = user_row.get("age") or base.get("age")
+        gender = user_row.get("gender") or base.get("gender")
+        activity_level = user_row.get("activity_level") or base.get("activity_level")
+        fitness_goal = user_row.get("fitness_goal") or base.get("fitness_goal")
 
         if height_cm:
-            self.user_data["height_cm"] = height_cm
+            updates["height_cm"] = height_cm
         if weight_kg:
-            self.user_data["weight_kg"] = weight_kg
+            updates["weight_kg"] = weight_kg
         if age:
-            self.user_data["age"] = age
+            updates["age"] = age
         if gender:
-            self.user_data["gender"] = gender
+            updates["gender"] = gender
         if activity_level:
-            self.user_data["activity_level"] = activity_level
+            updates["activity_level"] = activity_level
 
         # ---- BMI: latest saved calculation, else compute on the fly ----
         try:
             from bmi_calculator import calculate_bmi, classify_bmi
             bmi_history = database.get_bmi_history(email, limit=1)
             if bmi_history:
-                self.user_data["bmi"] = bmi_history[0]["bmi"]
-                self.user_data["bmi_category"] = bmi_history[0]["category"]
+                updates["bmi"] = bmi_history[0]["bmi"]
+                updates["bmi_category"] = bmi_history[0]["category"]
             elif height_cm and weight_kg:
                 bmi_value = calculate_bmi(height_cm, weight_kg)
                 category, _, _ = classify_bmi(bmi_value)
-                self.user_data["bmi"] = bmi_value
-                self.user_data["bmi_category"] = category
+                updates["bmi"] = bmi_value
+                updates["bmi_category"] = category
         except mysql.connector.Error:
             pass
 
@@ -267,8 +281,8 @@ class DashboardPage(ctk.CTk):
                 )
             if tdee is not None:
                 adjustment = GOAL_ADJUSTMENTS.get(fitness_goal, 0)
-                self.user_data["calorie_goal"] = round(tdee + adjustment)
-            self.user_data["calories_consumed"] = round(
+                updates["calorie_goal"] = round(tdee + adjustment)
+            updates["calories_consumed"] = round(
                 database.get_calories_consumed_today(email)
             )
         except mysql.connector.Error:
@@ -278,23 +292,23 @@ class DashboardPage(ctk.CTk):
         try:
             from water_calculator import calculate_water_goal_ml
             if weight_kg and activity_level:
-                self.user_data["water_goal_ml"] = round(
+                updates["water_goal_ml"] = round(
                     calculate_water_goal_ml(weight_kg, activity_level)
                 )
-            self.user_data["water_intake_ml"] = round(database.get_water_intake_today(email))
+            updates["water_intake_ml"] = round(database.get_water_intake_today(email))
         except mysql.connector.Error:
             pass
 
         # ---- Activity streak ----
         try:
-            self.user_data["streak_days"] = database.get_activity_streak_days(email)
+            updates["streak_days"] = database.get_activity_streak_days(email)
         except mysql.connector.Error:
             pass
 
         # ---- Recent meals (real logged food items, not placeholders) ----
         try:
             food_log = database.get_recent_food_log(email, limit=3)
-            self.user_data["recent_meals"] = [
+            updates["recent_meals"] = [
                 {
                     "name": item["food_name"].title(),
                     "calories": round(item["calories"]),
@@ -308,6 +322,51 @@ class DashboardPage(ctk.CTk):
             ]
         except mysql.connector.Error:
             pass
+
+        return updates
+
+    def _apply_live_data(self, updates):
+        """Runs on the main thread (scheduled via self.after). Merges the
+        background thread's results into self.user_data and patches only
+        the widgets whose backing values actually changed — no full
+        rebuild, just label/progress-bar updates and a meals-list
+        refresh, so this is cheap even though it may fire a beat after
+        the page first appears."""
+        if not updates:
+            return
+        self.user_data.update(updates)
+        d = self.user_data
+
+        if "bmi" in updates or "bmi_category" in updates:
+            self.bmi_value_label.configure(text=f"{d['bmi']:.1f}")
+            self.bmi_subtitle_label.configure(text=d["bmi_category"])
+
+        if "calorie_goal" in updates or "calories_consumed" in updates:
+            self.calorie_value_label.configure(
+                text=f"{d['calories_consumed']:.0f} / {d['calorie_goal']:.0f}"
+            )
+            self.calorie_progress_bar.set(
+                min(d["calories_consumed"] / max(d["calorie_goal"], 1), 1.0)
+            )
+
+        if "water_goal_ml" in updates or "water_intake_ml" in updates:
+            self.water_value_label.configure(
+                text=f"{d['water_intake_ml']:.0f} / {d['water_goal_ml']:.0f} ml"
+            )
+            self.water_progress_bar.set(
+                min(d["water_intake_ml"] / max(d["water_goal_ml"], 1), 1.0)
+            )
+
+        if "streak_days" in updates:
+            self.streak_value_label.configure(text=f"{d['streak_days']} days")
+
+        if "recent_meals" in updates:
+            self._render_recent_meals()
+
+        if any(k in updates for k in ("height_cm", "weight_kg", "bmi_category")):
+            self.height_value_label.configure(text=f"{d['height_cm']} cm")
+            self.weight_value_label.configure(text=f"{d['weight_kg']} kg")
+            self.bmi_category_value_label.configure(text=d["bmi_category"])
 
         if session.get_current_user():
             session.set_current_user(self.user_data)
@@ -508,26 +567,26 @@ class DashboardPage(ctk.CTk):
     def _build_stat_cards(self, parent):
         d = self.user_data
 
-        self._stat_card(
+        self.bmi_value_label, self.bmi_subtitle_label, _ = self._stat_card(
             parent, row=0, col=0, title="BMI",
             value=f"{d['bmi']:.1f}", subtitle=d["bmi_category"],
             on_click=self._open_bmi_calculator,
         )
-        self._stat_card(
+        self.calorie_value_label, _, self.calorie_progress_bar = self._stat_card(
             parent, row=0, col=1, title="Calorie Goal",
             value=f"{d['calories_consumed']:.0f} / {d['calorie_goal']:.0f}",
             subtitle="kcal today",
             progress=d["calories_consumed"] / max(d["calorie_goal"], 1),
             on_click=self._open_calorie_calculator,
         )
-        self._stat_card(
+        self.water_value_label, _, self.water_progress_bar = self._stat_card(
             parent, row=0, col=2, title="Water Intake",
             value=f"{d['water_intake_ml']:.0f} / {d['water_goal_ml']:.0f} ml",
             subtitle="today",
             progress=d["water_intake_ml"] / max(d["water_goal_ml"], 1),
             on_click=self._open_water_calculator,
         )
-        self._stat_card(
+        self.streak_value_label, _, _ = self._stat_card(
             parent, row=0, col=3, title="Current Streak",
             value=f"{d['streak_days']} days", subtitle="Keep it going!",
         )
@@ -576,6 +635,9 @@ class DashboardPage(ctk.CTk):
         DietPlannerPage(user_data=self.user_data).mainloop()
 
     def _stat_card(self, parent, row, col, title, value, subtitle, progress=None, on_click=None):
+        """Returns (value_label, subtitle_label, progress_bar_or_None) so
+        callers that need to patch this card later (see _apply_live_data)
+        can hold onto references without a full rebuild."""
         card = ctk.CTkFrame(parent, fg_color=COLOR_CARD, corner_radius=14)
         card.grid(row=row, column=col, sticky="nswe", padx=8, pady=8)
 
@@ -595,18 +657,21 @@ class DashboardPage(ctk.CTk):
         )
         subtitle_label.pack(anchor="w", padx=16, pady=(0, 10 if progress is None else 6))
 
+        progress_bar = None
         if progress is not None:
-            bar = ctk.CTkProgressBar(
+            progress_bar = ctk.CTkProgressBar(
                 card, height=6, corner_radius=6,
                 fg_color=COLOR_TRACK, progress_color=COLOR_ACCENT,
             )
-            bar.set(min(progress, 1.0))
-            bar.pack(fill="x", padx=16, pady=(0, 14))
+            progress_bar.set(min(progress, 1.0))
+            progress_bar.pack(fill="x", padx=16, pady=(0, 14))
 
         if on_click:
             for widget in (card, title_label, value_label, subtitle_label):
                 widget.configure(cursor="hand2")
                 widget.bind("<Button-1>", lambda _e: on_click())
+
+        return value_label, subtitle_label, progress_bar
 
     # ----------------------------------------------------- quick actions
     def _build_quick_actions(self, parent):
@@ -663,26 +728,9 @@ class DashboardPage(ctk.CTk):
             font=ctk.CTkFont(size=14, weight="bold"), text_color=COLOR_WHITE,
         ).grid(row=row, column=2, columnspan=2, sticky="w", padx=8, pady=(20, 6))
 
-        meals_card = ctk.CTkFrame(parent, fg_color=COLOR_CARD, corner_radius=14)
-        meals_card.grid(row=row + 1, column=0, columnspan=2, sticky="nswe", padx=8, pady=4)
-
-        if self.user_data["recent_meals"]:
-            for meal in self.user_data["recent_meals"]:
-                meal_row = ctk.CTkFrame(meals_card, fg_color="transparent")
-                meal_row.pack(fill="x", padx=16, pady=8)
-                ctk.CTkLabel(
-                    meal_row, text=meal["name"], font=ctk.CTkFont(size=12, weight="bold"),
-                    text_color=COLOR_WHITE, anchor="w",
-                ).pack(side="left")
-                ctk.CTkLabel(
-                    meal_row, text=f"{meal['calories']} kcal  ·  {meal['time']}",
-                    font=ctk.CTkFont(size=11), text_color=COLOR_MUTED,
-                ).pack(side="right")
-        else:
-            ctk.CTkLabel(
-                meals_card, text="No meals logged yet today.",
-                font=ctk.CTkFont(size=12), text_color=COLOR_MUTED,
-            ).pack(padx=16, pady=20)
+        self.meals_card = ctk.CTkFrame(parent, fg_color=COLOR_CARD, corner_radius=14)
+        self.meals_card.grid(row=row + 1, column=0, columnspan=2, sticky="nswe", padx=8, pady=4)
+        self._render_recent_meals()
 
         quote_card = ctk.CTkFrame(parent, fg_color=COLOR_CARD, corner_radius=14)
         quote_card.grid(row=row + 1, column=2, columnspan=2, sticky="nswe", padx=8, pady=4)
@@ -694,6 +742,33 @@ class DashboardPage(ctk.CTk):
             font=ctk.CTkFont(size=13, slant="italic"), text_color=COLOR_WHITE,
             justify="center",
         ).pack(padx=20, pady=(4, 20))
+
+    def _render_recent_meals(self):
+        """(Re)draws the recent-meals list inside self.meals_card. Called
+        once at build time and again from _apply_live_data() whenever
+        fresh meal rows arrive from the background thread — clears any
+        existing rows first so it never duplicates."""
+        for child in self.meals_card.winfo_children():
+            child.destroy()
+
+        meals = self.user_data["recent_meals"]
+        if meals:
+            for meal in meals:
+                meal_row = ctk.CTkFrame(self.meals_card, fg_color="transparent")
+                meal_row.pack(fill="x", padx=16, pady=8)
+                ctk.CTkLabel(
+                    meal_row, text=meal["name"], font=ctk.CTkFont(size=12, weight="bold"),
+                    text_color=COLOR_WHITE, anchor="w",
+                ).pack(side="left")
+                ctk.CTkLabel(
+                    meal_row, text=f"{meal['calories']} kcal  ·  {meal['time']}",
+                    font=ctk.CTkFont(size=11), text_color=COLOR_MUTED,
+                ).pack(side="right")
+        else:
+            ctk.CTkLabel(
+                self.meals_card, text="No meals logged yet today.",
+                font=ctk.CTkFont(size=12), text_color=COLOR_MUTED,
+            ).pack(padx=16, pady=20)
 
     # ---------------------------------------------------- health summary
     def _build_health_summary(self, parent):
@@ -713,16 +788,21 @@ class DashboardPage(ctk.CTk):
             ("Weight", f"{d['weight_kg']} kg"),
             ("BMI Category", d["bmi_category"]),
         ]
+        value_labels = []
         for i, (label, value) in enumerate(metrics):
             col = ctk.CTkFrame(summary_card, fg_color="transparent")
             col.grid(row=0, column=i, sticky="nswe", padx=16, pady=18)
             ctk.CTkLabel(
                 col, text=label, font=ctk.CTkFont(size=11), text_color=COLOR_ACCENT_SOFT,
             ).pack(anchor="w")
-            ctk.CTkLabel(
+            value_label = ctk.CTkLabel(
                 col, text=value, font=ctk.CTkFont(size=16, weight="bold"),
                 text_color=COLOR_WHITE,
-            ).pack(anchor="w")
+            )
+            value_label.pack(anchor="w")
+            value_labels.append(value_label)
+
+        self.height_value_label, self.weight_value_label, self.bmi_category_value_label = value_labels
 
 
 if __name__ == "__main__":

@@ -12,11 +12,14 @@ and behaves exactly as before. A default admin account
 (admin1@gmail.com / admin1234) is auto-created by database.py the
 first time it's imported, so that combination works out of the box.
 
-Responsive across desktop screen sizes: window size, fonts, and the
-logo scale relative to the screen resolution it's launched on (small
-laptop vs. large monitor), using the same _px()/scale pattern as
-splash_screen.py. Note: CustomTkinter/Tkinter is desktop-only — this
-does not run on Android/iOS.
+DISPLAY: the window itself now opens maximized/full-screen (same
+approach as dashboard.py's `_maximize_window` — `state('zoomed')`,
+falling back to `-zoomed` or a manual full-screen geometry). The
+login card stays a fixed, comfortably-sized panel (sized the same
+way as before, via `_compute_responsive_size`) but is now centered
+inside that full window rather than being the whole window. Fonts,
+padding, and the logo still scale with `self.scale` relative to the
+screen resolution, same as before.
 
 Run:
     pip install customtkinter mysql-connector-python
@@ -38,11 +41,15 @@ COLOR_ACCENT_SOFT = "#8FE3D1"    # softer mint for secondary text
 COLOR_WHITE = "#F5FBFA"
 COLOR_TRACK = "#155953"          # border / track color
 COLOR_ENTRY_BG = "#0B3D3A"
+COLOR_CARD = "#123F3C"           # card background, one step lighter than the
+                                  # full-screen COLOR_BG behind it so the
+                                  # centered panel still reads as a card
 
 # Base/reference design size (what the proportions below were tuned at)
 BASE_W, BASE_H = 1000, 200
 
-# Responsive bounds so it stays usable on any desktop screen size
+# Responsive bounds for the login CARD (not the window, which now fills
+# the screen) so the card stays a sensible size on any desktop screen size
 MIN_W, MIN_H = 340, 440
 MAX_W, MAX_H = 1000, 700
 
@@ -51,26 +58,61 @@ class LoginPage(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # ---- responsive sizing ---------------------------------------
+        # ---- responsive sizing for the CARD, not the window -----------
         self.win_w, self.win_h = self._compute_responsive_size()
         self.scale = self.win_w / BASE_W
 
         ctk.set_appearance_mode("dark")
         self.title("AI Diet Chart & Nutrition Calculator — Login")
         self.configure(fg_color=COLOR_BG)
-        self._center_window(self.win_w, self.win_h)
         self.minsize(MIN_W, MIN_H)
         self.resizable(True, True)
 
+        # Deferred, same reasoning as dashboard.py: CustomTkinter schedules
+        # some of its own window/DPI setup via internal after() calls right
+        # after the window is created, and calling state('zoomed') too
+        # early gets silently overwritten by that later setup. Queuing it
+        # with after() lets it run after that setup has settled.
+        self.after(10, self._maximize_window)
+
         self._build_ui()
+
+    # ------------------------------------------------------------ window
+    def _maximize_window(self):
+        """Opens the login page filling the screen instead of a small
+        centered window. `state('zoomed')` is the normal way to do this
+        on Windows and most Linux window managers; macOS's Tk build
+        doesn't support that state string and raises a TclError, so it
+        falls back to `-zoomed` (some Linux WMs use this attribute
+        instead), and finally to manually sizing/positioning the window
+        to the full screen if neither is available."""
+        maximized = False
+        try:
+            self.state("zoomed")
+            maximized = True
+        except Exception:
+            pass
+
+        if not maximized:
+            try:
+                self.attributes("-zoomed", True)
+                maximized = True
+            except Exception:
+                pass
+
+        if not maximized:
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            self.geometry(f"{screen_w}x{screen_h}+0+0")
 
     # ------------------------------------------------------------ sizing
     def _compute_responsive_size(self):
+        """Sizes the login CARD (not the window) relative to screen size,
+        the same proportions as before: ~30% of screen width and ~55% of
+        screen height, preserving the card's aspect ratio."""
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
 
-        # Target ~30% of screen width and ~55% of screen height,
-        # preserving the login card's aspect ratio.
         target_w = sw * 0.30
         target_h = sh * 0.55
 
@@ -84,28 +126,35 @@ class LoginPage(ctk.CTk):
         h = max(MIN_H, min(MAX_H, int(target_h)))
         return w, h
 
-    def _center_window(self, w, h):
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        x, y = (sw - w) // 2, (sh - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
-
     def _px(self, value):
         """Scales a base-design pixel value by the current responsive scale."""
         return max(1, round(value * self.scale))
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
+        # Full-window background frame — the card below is centered
+        # inside this, rather than the card being the whole window.
+        outer = ctk.CTkFrame(self, fg_color=COLOR_BG, corner_radius=0)
+        outer.pack(fill="both", expand=True)
+        outer.grid_rowconfigure(0, weight=1)
+        outer.grid_columnconfigure(0, weight=1)
+
         card = ctk.CTkFrame(
-            self, fg_color=COLOR_BG, corner_radius=self._px(20),
-            border_width=2, border_color=COLOR_TRACK
+            outer, width=self.win_w, height=self.win_h,
+            fg_color=COLOR_CARD, corner_radius=self._px(20),
+            border_width=2, border_color=COLOR_TRACK,
         )
-        card.pack(fill="both", expand=True, padx=self._px(20), pady=self._px(20))
+        card.grid(row=0, column=0)
+        # Keep the card at its computed size regardless of what's packed
+        # inside it — without this, pack() on the children would shrink
+        # or grow the frame to fit them instead of staying a fixed panel.
+        card.grid_propagate(False)
+        card.pack_propagate(False)
 
         # Small logo mark (medical cross in a ring) drawn on canvas
         logo_size = self._px(90)
         logo_canvas = ctk.CTkCanvas(
-            card, width=logo_size, height=logo_size, bg=COLOR_BG, highlightthickness=0
+            card, width=logo_size, height=logo_size, bg=COLOR_CARD, highlightthickness=0
         )
         logo_canvas.pack(pady=(self._px(30), self._px(6)))
         self._draw_logo(logo_canvas, logo_size)
