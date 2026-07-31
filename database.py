@@ -16,42 +16,56 @@ full CRUD for admin accounts (list/search, create, update, delete)
 used by the Admin Dashboard's Admin Management page.
 
 Setup:
-    1. pip install mysql-connector-python bcrypt
+    1. pip install mysql-connector-python bcrypt python-dotenv
     2. Create the database once in MySQL:
            CREATE DATABASE diet_app;
-    3. Fill in DB_CONFIG below with your MySQL credentials.
+    3. Create a `db.env` file next to this one with:
+           DB_HOST=localhost
+           DB_USER=root
+           DB_PASSWORD=your_mysql_password
+           DB_NAME=diet_app
+           DEFAULT_ADMIN_EMAIL=admin1@gmail.com
+           DEFAULT_ADMIN_PASSWORD=choose_a_strong_password
+       Make sure db.env (and api.env) are listed in .gitignore.
     4. Run this file directly once to create the `users` table:
            python database.py
 """
 
 import json
+import os
 from datetime import date, timedelta
 
 import mysql.connector
 from mysql.connector import errorcode
 import bcrypt
+from dotenv import load_dotenv
 
 # ---------------------------------------------------------------------------
-# EDIT THESE with your own MySQL credentials
-# (in a real deployment, load these from environment variables / a .env
-# file instead of hardcoding them here)
+# Credentials are loaded from env files, never hardcoded here.
+# api.env holds the Gemini API key; db.env holds the MySQL credentials
+# and the default admin login. Both must be listed in .gitignore.
 # ---------------------------------------------------------------------------
+load_dotenv("api.env")
+load_dotenv("db.env")
+
 DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "ROOT_@0008",
-    "database": "diet_app",
+    "host": os.getenv("DB_HOST", "localhost"),
+    "user": os.getenv("DB_USER", "root"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME", "diet_app"),
 }
 
 # Default admin account, auto-created (if missing) every time this module
-# is imported — see ensure_default_admin(). Change the password by logging
-# in and rotating it (or by calling update_admin_password), not by editing
-# this constant, since it's only used the very first time the row is
-# created. This account is also protected from deletion in the Admin
-# Dashboard's Admin Management page (see delete_admin) so there's always
-# at least one working admin login.
-DEFAULT_ADMIN_EMAIL = "admin1@gmail.com"
-DEFAULT_ADMIN_PASSWORD = "admin1234"
+# is imported — see ensure_default_admin(). Both the email and the
+# initial password come from db.env now, since a hardcoded password here
+# is just as much a leaked credential as a hardcoded DB password. Change
+# the password afterwards by logging in and rotating it, not by editing
+# db.env, since it's only used the very first time the row is created.
+# This account is also protected from deletion in the Admin Dashboard's
+# Admin Management page (see delete_admin) so there's always at least
+# one working admin login.
+DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL", "admin1@gmail.com")
+DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD")
 DEFAULT_ADMIN_FULL_NAME = "Admin"
 
 CREATE_USERS_TABLE = """
@@ -403,9 +417,15 @@ def create_admins_table():
 
 def ensure_default_admin():
     """Creates the default admin account (DEFAULT_ADMIN_EMAIL /
-    DEFAULT_ADMIN_PASSWORD) the first time this runs. Safe to call every
-    time the app starts — does nothing if that email is already present
-    in `admins` (e.g. because the password was changed since)."""
+    DEFAULT_ADMIN_PASSWORD, both from db.env) the first time this runs.
+    Safe to call every time the app starts — does nothing if that email
+    is already present in `admins` (e.g. because the password was
+    changed since), and does nothing if DEFAULT_ADMIN_PASSWORD isn't set
+    (so a missing db.env doesn't create an account with a None
+    password)."""
+    if not DEFAULT_ADMIN_PASSWORD:
+        return
+
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -1612,15 +1632,18 @@ except mysql.connector.Error:
 
 if __name__ == "__main__":
     # Running this file directly sets up the database table.
-    try:
-        create_users_table()
-        print("Connected successfully. 'users' table is ready.")
-        print(f"Default admin ready: {DEFAULT_ADMIN_EMAIL}")
-    except mysql.connector.Error as err:
-        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-            print("Access denied — check DB_CONFIG username/password.")
-        elif err.errno == errorcode.ER_BAD_DB_ERROR:
-            print("Database does not exist — create it first with:")
-            print("  CREATE DATABASE diet_app;")
-        else:
-            print(f"Database error: {err}")
+    if not DB_CONFIG["password"]:
+        print("DB_PASSWORD is not set — check that db.env exists and is filled in.")
+    else:
+        try:
+            create_users_table()
+            print("Connected successfully. 'users' table is ready.")
+            print(f"Default admin ready: {DEFAULT_ADMIN_EMAIL}")
+        except mysql.connector.Error as err:
+            if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+                print("Access denied — check db.env's DB_USER/DB_PASSWORD.")
+            elif err.errno == errorcode.ER_BAD_DB_ERROR:
+                print("Database does not exist — create it first with:")
+                print("  CREATE DATABASE diet_app;")
+            else:
+                print(f"Database error: {err}")
