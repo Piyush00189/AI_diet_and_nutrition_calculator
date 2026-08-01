@@ -21,6 +21,13 @@ inside that full window rather than being the whole window. Fonts,
 padding, and the logo still scale with `self.scale` relative to the
 screen resolution, same as before.
 
+REMEMBER ME: a checkbox under the password field. When checked at
+login time, `session.remember_login(email)` writes a small token
+(email + 7-day expiry, never the password) to disk via session.py,
+so `app.py` can skip straight to the dashboard on the next launch.
+Left unchecked, any previously remembered login is cleared, so the
+app goes back to asking for login every run as before.
+
 Run:
     pip install customtkinter mysql-connector-python
     python login_page.py
@@ -218,6 +225,16 @@ class LoginPage(ctk.CTk):
         )
         self.password_toggle_btn.grid(row=0, column=1, padx=(self._px(6), 0))
 
+        # Remember me checkbox
+        self.remember_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            card, text="Remember me", variable=self.remember_var,
+            fg_color=COLOR_ACCENT, hover_color="#26B79A",
+            checkmark_color=COLOR_BG,
+            text_color=COLOR_ACCENT_SOFT,
+            font=ctk.CTkFont(size=max(9, self._px(11))),
+        ).pack(anchor="w", pady=(0, self._px(8)), padx=pad_x)
+
         forgot_row = ctk.CTkFrame(card, fg_color="transparent")
         forgot_row.pack(fill="x", padx=pad_x)
         ctk.CTkButton(
@@ -332,6 +349,14 @@ class LoginPage(ctk.CTk):
             return
 
         session.set_current_user(user)
+
+        # Remember me: persist a token (email + expiry only, never the
+        # password) so app.py can skip straight to the dashboard on the
+        # next launch. Unchecked clears any previously remembered login.
+        if self.remember_var.get():
+            session.remember_login(email)
+        else:
+            session.forget_remembered_login()
 
         from dashboard import DashboardPage
         self.destroy()

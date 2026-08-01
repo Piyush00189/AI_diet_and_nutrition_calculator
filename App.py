@@ -7,6 +7,7 @@ import customtkinter as ctk
 # once, before the splash screen even appears, rather than lazily the
 # first time some page happens to touch the DB.
 import database
+import session
 
 from splash_screen import SplashScreen
 from login_page import LoginPage
@@ -33,11 +34,27 @@ def _open_login():
     login.mainloop()
 
 
+def _open_dashboard(user_data: dict):
+    """Skips the splash/login screens entirely because a valid
+    'remember me' session was found on disk."""
+    from dashboard import DashboardPage
+    DashboardPage(user_data=user_data).mainloop()
+
+
 def main():
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("dark-blue")
 
     try:
+        # If the user checked "Remember me" on a previous login, this
+        # restores that session (re-verified against MySQL) and opens
+        # the dashboard directly. Otherwise it returns None and the
+        # app falls through to the normal splash -> login flow.
+        restored_user = session.try_restore_session()
+        if restored_user:
+            _open_dashboard(restored_user)
+            return
+
         splash = SplashScreen(on_finish=_open_login)
         splash.mainloop()
     except mysql.connector.Error as db_err:
