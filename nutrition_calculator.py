@@ -17,6 +17,14 @@ log, not a scratchpad that resets whenever you navigate away. Use
 "Clear History" to wipe today's saved log (both on screen and in the
 database) if you want to start over.
 
+DISPLAY: opens maximized/full-screen on launch, same approach as
+login_page.py / dashboard.py / bmi_calculator.py / calorie_calculator.py
+/ notifications_page.py / ai_health_tips.py / settings_page.py /
+about_page.py / feedback_page.py / exercise_recommendation.py /
+help_contact.py / diet_planner.py / meal_planner.py /
+forgot_password_page.py (`state('zoomed')`, falling back to
+`-zoomed` or a manual full-screen geometry).
+
 SETUP:
     pip install customtkinter google-generativeai python-dotenv
     Create a file named api.env in this same folder containing:
@@ -81,7 +89,6 @@ COLOR_ERROR = "#FF8A80"
 COLOR_SUCCESS = "#8CFFB0"
 COLOR_ROW_ALT = "#124742"
 
-WINDOW_W, WINDOW_H = 720, 640
 MIN_W, MIN_H = 600, 500
 
 # NUTRIENTS: (key, header label, unit)
@@ -181,26 +188,47 @@ class NutritionCalculatorPage(ctk.CTk):
         ctk.set_appearance_mode("dark")
         self.title("AI Diet Chart & Nutrition Calculator — Nutrition Calculator")
         self.configure(fg_color=COLOR_BG)
-        win_w, win_h = self._compute_responsive_size()
-        self._center_window(win_w, win_h)
         self.minsize(MIN_W, MIN_H)
         self.resizable(True, True)
+
+        # Deferred, same reasoning as the rest of the app's pages:
+        # CustomTkinter schedules some of its own window/DPI setup via
+        # internal after() calls right after the window is created, and
+        # calling state('zoomed') too early gets silently overwritten by
+        # that later setup. Queuing it with after() lets it run after
+        # that setup has settled.
+        self.after(10, self._maximize_window)
 
         self._build_ui()
         self._load_today_history()
 
-    def _compute_responsive_size(self):
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        w = max(MIN_W, min(int(sw * 0.5), 900))
-        h = max(MIN_H, min(int(sh * 0.75), 800))
-        return w, h
+    # ------------------------------------------------------------ window
+    def _maximize_window(self):
+        """Opens the page filling the screen instead of a small centered
+        window. `state('zoomed')` is the normal way to do this on
+        Windows and most Linux window managers; macOS's Tk build
+        doesn't support that state string and raises a TclError, so it
+        falls back to `-zoomed` (some Linux WMs use this attribute
+        instead), and finally to manually sizing/positioning the window
+        to the full screen if neither is available."""
+        maximized = False
+        try:
+            self.state("zoomed")
+            maximized = True
+        except Exception:
+            pass
 
-    def _center_window(self, w, h):
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        x, y = (sw - w) // 2, (sh - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        if not maximized:
+            try:
+                self.attributes("-zoomed", True)
+                maximized = True
+            except Exception:
+                pass
+
+        if not maximized:
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            self.geometry(f"{screen_w}x{screen_h}+0+0")
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):

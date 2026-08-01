@@ -9,6 +9,14 @@ Two-step flow in one window:
   2. If found, the "new password" section unlocks -> validated,
      then saved to MySQL via database.update_password().
 
+DISPLAY: opens maximized/full-screen on launch, same approach as
+login_page.py / dashboard.py / bmi_calculator.py / calorie_calculator.py
+/ notifications_page.py / ai_health_tips.py / settings_page.py /
+about_page.py / feedback_page.py / exercise_recommendation.py
+(`state('zoomed')`, falling back to `-zoomed` or a manual full-screen
+geometry). The compact card is kept centered on screen via `.place()`
+so it doesn't stretch or stick to a corner once the window is maximized.
+
 Run:
     pip install customtkinter mysql-connector-python
     python forgot_password_page.py
@@ -32,7 +40,7 @@ COLOR_ENTRY_BG = "#0B3D3A"
 COLOR_ERROR = "#FF8A80"
 COLOR_SUCCESS = "#8CFFB0"
 
-WINDOW_W, WINDOW_H = 420, 560
+CARD_W, CARD_H = 420, 560
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -49,24 +57,58 @@ class ForgotPasswordPage(ctk.CTk):
         ctk.set_appearance_mode("dark")
         self.title("AI Diet Chart & Nutrition Calculator — Forgot Password")
         self.configure(fg_color=COLOR_BG)
-        self._center_window(WINDOW_W, WINDOW_H)
-        self.resizable(False, False)
+        self.resizable(True, True)
+
+        # Deferred, same reasoning as the rest of the app's pages:
+        # CustomTkinter schedules some of its own window/DPI setup via
+        # internal after() calls right after the window is created, and
+        # calling state('zoomed') too early gets silently overwritten by
+        # that later setup. Queuing it with after() lets it run after
+        # that setup has settled.
+        self.after(10, self._maximize_window)
 
         self._build_ui()
 
-    def _center_window(self, w, h):
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        x, y = (sw - w) // 2, (sh - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
+    # ------------------------------------------------------------ window
+    def _maximize_window(self):
+        """Opens the page filling the screen instead of a small centered
+        window. `state('zoomed')` is the normal way to do this on
+        Windows and most Linux window managers; macOS's Tk build
+        doesn't support that state string and raises a TclError, so it
+        falls back to `-zoomed` (some Linux WMs use this attribute
+        instead), and finally to manually sizing/positioning the window
+        to the full screen if neither is available."""
+        maximized = False
+        try:
+            self.state("zoomed")
+            maximized = True
+        except Exception:
+            pass
+
+        if not maximized:
+            try:
+                self.attributes("-zoomed", True)
+                maximized = True
+            except Exception:
+                pass
+
+        if not maximized:
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            self.geometry(f"{screen_w}x{screen_h}+0+0")
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
+        # The card is a fixed-size panel kept centered on screen with
+        # .place() (relx/rely + anchor) rather than .pack(fill="both",
+        # expand=True), so it stays a compact centered form instead of
+        # stretching to fill the now-maximized window.
         self.card = ctk.CTkFrame(
-            self, fg_color=COLOR_BG, corner_radius=20,
+            self, width=CARD_W, height=CARD_H, fg_color=COLOR_BG, corner_radius=20,
             border_width=2, border_color=COLOR_TRACK
         )
-        self.card.pack(fill="both", expand=True, padx=20, pady=20)
+        self.card.place(relx=0.5, rely=0.5, anchor="center")
+        self.card.pack_propagate(False)
 
         ctk.CTkLabel(
             self.card, text="Reset Your Password",

@@ -16,6 +16,13 @@ support-ticket DB insert. Right now it saves submissions locally to
 `support_tickets.json` next to this file and shows a confirmation,
 so nothing is lost while that integration is pending.
 
+DISPLAY: opens maximized/full-screen on launch, same approach as
+login_page.py / dashboard.py / bmi_calculator.py / calorie_calculator.py
+/ notifications_page.py / ai_health_tips.py / settings_page.py /
+about_page.py / feedback_page.py / exercise_recommendation.py
+(`state('zoomed')`, falling back to `-zoomed` or a manual full-screen
+geometry).
+
 Run:
     pip install customtkinter
     python help_contact.py
@@ -45,7 +52,6 @@ COLOR_MUTED = "#6FA69E"
 COLOR_DANGER = "#FF8A80"
 COLOR_INPUT = "#0F3F3B"
 
-WINDOW_W, WINDOW_H = 1100, 700
 MIN_W, MIN_H = 860, 600
 
 NAV_ITEMS = [
@@ -224,8 +230,16 @@ class HelpContactPage(ctk.CTk):
         ctk.set_appearance_mode("dark")
         self.title("AI Diet Chart & Nutrition Calculator — Help & Contact")
         self.configure(fg_color=COLOR_BG)
-        self.geometry(f"{WINDOW_W}x{WINDOW_H}")
         self.minsize(MIN_W, MIN_H)
+        self.resizable(True, True)
+
+        # Deferred, same reasoning as the rest of the app's pages:
+        # CustomTkinter schedules some of its own window/DPI setup via
+        # internal after() calls right after the window is created, and
+        # calling state('zoomed') too early gets silently overwritten by
+        # that later setup. Queuing it with after() lets it run after
+        # that setup has settled.
+        self.after(10, self._maximize_window)
 
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=0)
@@ -233,6 +247,34 @@ class HelpContactPage(ctk.CTk):
 
         self._build_sidebar()
         self._build_main_area()
+
+    # ------------------------------------------------------------ window
+    def _maximize_window(self):
+        """Opens the page filling the screen instead of a small centered
+        window. `state('zoomed')` is the normal way to do this on
+        Windows and most Linux window managers; macOS's Tk build
+        doesn't support that state string and raises a TclError, so it
+        falls back to `-zoomed` (some Linux WMs use this attribute
+        instead), and finally to manually sizing/positioning the window
+        to the full screen if neither is available."""
+        maximized = False
+        try:
+            self.state("zoomed")
+            maximized = True
+        except Exception:
+            pass
+
+        if not maximized:
+            try:
+                self.attributes("-zoomed", True)
+                maximized = True
+            except Exception:
+                pass
+
+        if not maximized:
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            self.geometry(f"{screen_w}x{screen_h}+0+0")
 
     # ================================================================ NAV
     def _build_sidebar(self):

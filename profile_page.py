@@ -11,6 +11,14 @@ level, and fitness goal. Saves to MySQL via database.update_profile().
 Editing email re-checks it isn't already used by another account
 before saving, since email is the app's login identifier.
 
+DISPLAY: opens maximized/full-screen on launch, same approach as
+login_page.py / dashboard.py / bmi_calculator.py / calorie_calculator.py
+/ notifications_page.py / ai_health_tips.py / settings_page.py /
+about_page.py / feedback_page.py / exercise_recommendation.py /
+help_contact.py / diet_planner.py / meal_planner.py /
+forgot_password_page.py / nutrition_calculator.py (`state('zoomed')`,
+falling back to `-zoomed` or a manual full-screen geometry).
+
 Run:
     pip install customtkinter mysql-connector-python pillow
     python profile_page.py
@@ -42,11 +50,7 @@ COLOR_MUTED = "#6FA69E"
 COLOR_ERROR = "#FF8A80"
 COLOR_SUCCESS = "#8CFFB0"
 
-WINDOW_W, WINDOW_H = 480, 780  # base/reference design size
-
-# Responsive bounds so the window fits comfortably on any desktop screen
 MIN_W, MIN_H = 380, 560
-MAX_W, MAX_H = 560, 860
 AVATAR_SIZE = 110
 
 GENDER_OPTIONS = ["Male", "Female", "Other"]
@@ -87,38 +91,46 @@ class ProfilePage(ctk.CTk):
         ctk.set_appearance_mode("dark")
         self.title("AI Diet Chart & Nutrition Calculator — Profile")
         self.configure(fg_color=COLOR_BG)
-        win_w, win_h = self._compute_responsive_size()
-        self._center_window(win_w, win_h)
         self.minsize(MIN_W, MIN_H)
         self.resizable(True, True)
 
+        # Deferred, same reasoning as the rest of the app's pages:
+        # CustomTkinter schedules some of its own window/DPI setup via
+        # internal after() calls right after the window is created, and
+        # calling state('zoomed') too early gets silently overwritten by
+        # that later setup. Queuing it with after() lets it run after
+        # that setup has settled.
+        self.after(10, self._maximize_window)
+
         self._build_ui()
 
-    def _compute_responsive_size(self):
-        """Sizes the window relative to the actual screen resolution
-        (normal-looking on a small laptop and a large monitor alike),
-        clamped between MIN_W/MIN_H and MAX_W/MAX_H."""
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
+    # ------------------------------------------------------------ window
+    def _maximize_window(self):
+        """Opens the page filling the screen instead of a small centered
+        window. `state('zoomed')` is the normal way to do this on
+        Windows and most Linux window managers; macOS's Tk build
+        doesn't support that state string and raises a TclError, so it
+        falls back to `-zoomed` (some Linux WMs use this attribute
+        instead), and finally to manually sizing/positioning the window
+        to the full screen if neither is available."""
+        maximized = False
+        try:
+            self.state("zoomed")
+            maximized = True
+        except Exception:
+            pass
 
-        target_w = sw * 0.28
-        target_h = sh * 0.75
+        if not maximized:
+            try:
+                self.attributes("-zoomed", True)
+                maximized = True
+            except Exception:
+                pass
 
-        aspect = WINDOW_H / WINDOW_W
-        if target_h / target_w > aspect:
-            target_h = target_w * aspect
-        else:
-            target_w = target_h / aspect
-
-        w = max(MIN_W, min(MAX_W, int(target_w)))
-        h = max(MIN_H, min(MAX_H, int(target_h)))
-        return w, h
-
-    def _center_window(self, w, h):
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        x, y = (sw - w) // 2, (sh - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        if not maximized:
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            self.geometry(f"{screen_w}x{screen_h}+0+0")
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
@@ -156,9 +168,18 @@ class ProfilePage(ctk.CTk):
             command=self._handle_change_photo,
         ).pack(pady=(0, 18))
 
-        # Scrollable form for the rest — keeps the window a sane height
-        form = ctk.CTkScrollableFrame(outer, fg_color="transparent")
-        form.pack(fill="both", expand=True, padx=16)
+        # Scrollable form for the rest — keeps the content usable at any
+        # window height, and centers nicely in a maximized window since
+        # it's constrained to a comfortable reading width.
+        form_wrap = ctk.CTkFrame(outer, fg_color="transparent")
+        form_wrap.pack(fill="both", expand=True, padx=16)
+        form_wrap.grid_columnconfigure(0, weight=1)
+        form_wrap.grid_columnconfigure(1, weight=0, minsize=440)
+        form_wrap.grid_columnconfigure(2, weight=1)
+        form_wrap.grid_rowconfigure(0, weight=1)
+
+        form = ctk.CTkScrollableFrame(form_wrap, fg_color="transparent", width=440)
+        form.grid(row=0, column=1, sticky="nswe")
 
         # ---- Editable identity fields -----------------------------------
         self.full_name_entry = self._add_entry(
