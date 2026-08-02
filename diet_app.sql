@@ -2,6 +2,7 @@ CREATE DATABASE diet_app;
 
 use diet_app;
 
+
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,

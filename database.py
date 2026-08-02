@@ -1394,13 +1394,17 @@ def update_profile(
     weight_kg: float,
     activity_level: str,
     fitness_goal: str,
+    phone: str = None,
     profile_picture_path: str = None,
 ) -> None:
     """
-    Updates a user's profile: name, email, and the editable health fields.
-    `original_email` identifies which row to update; `new_email` is the
-    value to save (pass the same value as original_email if it's unchanged).
-    Pass profile_picture_path=None to leave the current picture unchanged.
+    Updates a user's profile: name, email, phone, and the editable
+    health fields. `original_email` identifies which row to update;
+    `new_email` is the value to save (pass the same value as
+    original_email if it's unchanged). Pass phone=None to leave the
+    current phone number unchanged (e.g. for callers that don't collect
+    it). Pass profile_picture_path=None to leave the current picture
+    unchanged.
 
     Raises ValueError if:
       - no account exists with `original_email`, or
@@ -1412,33 +1416,36 @@ def update_profile(
     if new_email != original_email and email_exists(new_email):
         raise ValueError("That email is already in use by another account.")
 
+    # Build the SET clause dynamically so phone and/or the profile
+    # picture path are only touched when a caller actually supplies
+    # them — everything else is always updated.
+    set_clauses = [
+        "full_name = %s", "email = %s", "age = %s", "gender = %s",
+        "height_cm = %s", "weight_kg = %s", "activity_level = %s",
+        "fitness_goal = %s",
+    ]
+    params = [
+        full_name, new_email, age, gender, height_cm, weight_kg,
+        activity_level, fitness_goal,
+    ]
+
+    if phone is not None:
+        set_clauses.append("phone = %s")
+        params.append(phone)
+
+    if profile_picture_path is not None:
+        set_clauses.append("profile_picture_path = %s")
+        params.append(profile_picture_path)
+
+    params.append(original_email)
+
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        if profile_picture_path is not None:
-            cursor.execute(
-                """
-                UPDATE users
-                SET full_name = %s, email = %s, age = %s, gender = %s,
-                    height_cm = %s, weight_kg = %s, activity_level = %s,
-                    fitness_goal = %s, profile_picture_path = %s
-                WHERE email = %s
-                """,
-                (full_name, new_email, age, gender, height_cm, weight_kg,
-                 activity_level, fitness_goal, profile_picture_path, original_email),
-            )
-        else:
-            cursor.execute(
-                """
-                UPDATE users
-                SET full_name = %s, email = %s, age = %s, gender = %s,
-                    height_cm = %s, weight_kg = %s, activity_level = %s,
-                    fitness_goal = %s
-                WHERE email = %s
-                """,
-                (full_name, new_email, age, gender, height_cm, weight_kg,
-                 activity_level, fitness_goal, original_email),
-            )
+        cursor.execute(
+            f"UPDATE users SET {', '.join(set_clauses)} WHERE email = %s",
+            tuple(params),
+        )
         conn.commit()
         cursor.close()
     finally:

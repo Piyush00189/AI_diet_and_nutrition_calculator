@@ -5,8 +5,8 @@ AI Diet Chart & Nutrition Calculator — User Profile Page
 Healthcare-themed, built with CustomTkinter.
 
 Lets the logged-in user view and edit: profile picture, full name,
-email, phone (read-only), age, gender, height, weight, activity
-level, and fitness goal. Saves to MySQL via database.update_profile().
+email, phone, age, gender, height, weight, activity level, and
+fitness goal. Saves to MySQL via database.update_profile().
 
 Editing email re-checks it isn't already used by another account
 before saving, since email is the app's login identifier.
@@ -64,6 +64,7 @@ GOAL_OPTIONS = [
 
 PROFILE_PICTURES_DIR = "profile_pictures"
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+PHONE_PATTERN = re.compile(r"^\+?\d{7,15}$")
 
 
 class ProfilePage(ctk.CTk):
@@ -186,9 +187,8 @@ class ProfilePage(ctk.CTk):
             form, "Full Name", self.user_data.get("full_name", ""))
         self.email_entry = self._add_entry(
             form, "Email", self.user_data.get("email", ""))
-
-        # ---- Read-only info ---------------------------------------------
-        self._add_readonly(form, "Phone", self.user_data.get("phone") or "—")
+        self.phone_entry = self._add_entry(
+            form, "Phone", self.user_data.get("phone") or "")
 
         # ---- Editable health fields --------------------------------
         self.age_entry = self._add_entry(
@@ -329,6 +329,7 @@ class ProfilePage(ctk.CTk):
 
         full_name = self.full_name_entry.get().strip()
         new_email = self.email_entry.get().strip()
+        phone = self.phone_entry.get().strip()
         age_raw = self.age_entry.get().strip()
         height_raw = self.height_entry.get().strip()
         weight_raw = self.weight_entry.get().strip()
@@ -338,6 +339,9 @@ class ProfilePage(ctk.CTk):
 
         if not EMAIL_PATTERN.match(new_email):
             errors.append("Enter a valid email address.")
+
+        if not PHONE_PATTERN.match(phone):
+            errors.append("Enter a valid phone number (7-15 digits).")
 
         age = None
         if not age_raw.isdigit() or not (1 <= int(age_raw) <= 120):
@@ -366,6 +370,7 @@ class ProfilePage(ctk.CTk):
         cleaned = {
             "full_name": full_name,
             "email": new_email,
+            "phone": phone,
             "age": age,
             "gender": self.gender_menu.get(),
             "height_cm": height,
@@ -455,6 +460,7 @@ class ProfilePage(ctk.CTk):
                 original_email=self.original_email,
                 full_name=data["full_name"],
                 new_email=data["email"],
+                phone=data["phone"],
                 age=data["age"],
                 gender=data["gender"],
                 height_cm=data["height_cm"],

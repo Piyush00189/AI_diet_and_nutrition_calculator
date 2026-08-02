@@ -17,8 +17,6 @@ COLOR_ENTRY_BG = "#0B3D3A"
 COLOR_ERROR = "#FF8A80"
 COLOR_SUCCESS = "#8CFFB0"
 
-WINDOW_W, WINDOW_H = 480, 700
-
 GENDER_OPTIONS = ["Male", "Female", "Other"]
 ACTIVITY_OPTIONS = [
     "Sedentary",
@@ -52,16 +50,55 @@ class RegistrationPage(ctk.CTk):
         ctk.set_appearance_mode("dark")
         self.title("AI Diet Chart & Nutrition Calculator — Register")
         self.configure(fg_color=COLOR_BG)
-        self._center_window(WINDOW_W, WINDOW_H)
-        self.resizable(False, False)
+        self.resizable(True, True)
+
+        # Deferred, same reasoning as the rest of the app's pages:
+        # CustomTkinter schedules some of its own window/DPI setup via
+        # internal after() calls right after the window is created, and
+        # calling state('zoomed') too early gets silently overwritten by
+        # that later setup. Queuing it with after() lets it run after
+        # that setup has settled.
+        self.after(10, self._maximize_window)
 
         self._build_ui()
 
-    def _center_window(self, w, h):
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        x, y = (sw - w) // 2, (sh - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
+    # ------------------------------------------------------------ window
+    def _maximize_window(self):
+        """Opens the page filling the screen instead of a small centered
+        window. `state('zoomed')` is the normal way to do this on
+        Windows and most Linux window managers; macOS's Tk build
+        doesn't support that state string and raises a TclError, so it
+        falls back to `-zoomed` (some Linux WMs use this attribute
+        instead), and finally to manually sizing/positioning the window
+        to the full screen if neither is available.
+
+        `update_idletasks()` before and after: the "before" call flushes
+        any geometry CustomTkinter itself has queued so we're not racing
+        its own setup, and the "after" call forces the layout to
+        immediately recompute against the new window size instead of
+        waiting for the next idle cycle."""
+        self.update_idletasks()
+
+        maximized = False
+        try:
+            self.state("zoomed")
+            maximized = True
+        except Exception:
+            pass
+
+        if not maximized:
+            try:
+                self.attributes("-zoomed", True)
+                maximized = True
+            except Exception:
+                pass
+
+        if not maximized:
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            self.geometry(f"{screen_w}x{screen_h}+0+0")
+
+        self.update_idletasks()
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
@@ -83,10 +120,11 @@ class RegistrationPage(ctk.CTk):
             text_color=COLOR_ACCENT_SOFT,
         ).pack(pady=(0, 14))
 
-        # Scrollable form area — keeps the window a reasonable size
-        # even with 11 fields.
+        # Scrollable form area, filling the available width/height so
+        # the fields stretch to fill the maximized window instead of
+        # sitting in a small centered card.
         form = ctk.CTkScrollableFrame(
-            outer, fg_color="transparent", width=400, height=430,
+            outer, fg_color="transparent",
             scrollbar_button_color=COLOR_TRACK,
         )
         form.pack(fill="both", expand=True, padx=16)
