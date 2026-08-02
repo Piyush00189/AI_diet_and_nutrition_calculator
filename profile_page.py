@@ -170,17 +170,10 @@ class ProfilePage(ctk.CTk):
         ).pack(pady=(0, 18))
 
         # Scrollable form for the rest — keeps the content usable at any
-        # window height, and centers nicely in a maximized window since
-        # it's constrained to a comfortable reading width.
-        form_wrap = ctk.CTkFrame(outer, fg_color="transparent")
-        form_wrap.pack(fill="both", expand=True, padx=16)
-        form_wrap.grid_columnconfigure(0, weight=1)
-        form_wrap.grid_columnconfigure(1, weight=0, minsize=440)
-        form_wrap.grid_columnconfigure(2, weight=1)
-        form_wrap.grid_rowconfigure(0, weight=1)
-
-        form = ctk.CTkScrollableFrame(form_wrap, fg_color="transparent", width=440)
-        form.grid(row=0, column=1, sticky="nswe")
+        # window height, and fills the available width like the other
+        # pages instead of sitting in a narrow centered column.
+        form = ctk.CTkScrollableFrame(outer, fg_color="transparent")
+        form.pack(fill="both", expand=True, padx=16)
 
         # ---- Editable identity fields -----------------------------------
         self.full_name_entry = self._add_entry(
