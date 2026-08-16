@@ -322,7 +322,7 @@ class AdminFormDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             wrapper, text="Edit Admin" if self.is_edit else "Add New Admin",
-            anchor="w", font=ctk.CTkFont(size=max(13, self._px(16)), weight="bold"),
+            anchor="w", font=ctk.CTkFont(size=max(15, self._px(16)), weight="bold"),
             text_color=COLOR_WHITE,
         ).pack(anchor="w", pady=(0, self._px(4)))
 
@@ -333,7 +333,7 @@ class AdminFormDialog(ctk.CTkToplevel):
         )
         ctk.CTkLabel(
             wrapper, text=subtitle, anchor="w",
-            font=ctk.CTkFont(size=max(9, self._px(11))),
+            font=ctk.CTkFont(size=max(12, self._px(13))),
             text_color=COLOR_ACCENT_SOFT, wraplength=self._px(360),
         ).pack(anchor="w", pady=(0, self._px(16)))
 
@@ -341,49 +341,53 @@ class AdminFormDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             wrapper, text="Full Name", anchor="w",
-            font=ctk.CTkFont(size=max(9, self._px(11))), text_color=COLOR_ACCENT_SOFT,
+            font=ctk.CTkFont(size=max(12, self._px(13))), text_color=COLOR_ACCENT_SOFT,
         ).pack(anchor="w")
         self.name_entry = ctk.CTkEntry(
             wrapper, height=entry_h, corner_radius=self._px(10),
             fg_color=COLOR_ENTRY_BG, border_color=COLOR_TRACK, text_color=COLOR_WHITE,
+            font=ctk.CTkFont(size=max(12, self._px(13))),
         )
         self.name_entry.pack(fill="x", pady=(self._px(4), self._px(12)))
 
         ctk.CTkLabel(
             wrapper, text="Email", anchor="w",
-            font=ctk.CTkFont(size=max(9, self._px(11))), text_color=COLOR_ACCENT_SOFT,
+            font=ctk.CTkFont(size=max(12, self._px(13))), text_color=COLOR_ACCENT_SOFT,
         ).pack(anchor="w")
         self.email_entry = ctk.CTkEntry(
             wrapper, height=entry_h, corner_radius=self._px(10),
             fg_color=COLOR_ENTRY_BG, border_color=COLOR_TRACK, text_color=COLOR_WHITE,
+            font=ctk.CTkFont(size=max(12, self._px(13))),
         )
         self.email_entry.pack(fill="x", pady=(self._px(4), self._px(12)))
 
         pw_label_text = "New Password (optional)" if self.is_edit else "Password"
         ctk.CTkLabel(
             wrapper, text=pw_label_text, anchor="w",
-            font=ctk.CTkFont(size=max(9, self._px(11))), text_color=COLOR_ACCENT_SOFT,
+            font=ctk.CTkFont(size=max(12, self._px(13))), text_color=COLOR_ACCENT_SOFT,
         ).pack(anchor="w")
         self.password_entry = ctk.CTkEntry(
             wrapper, height=entry_h, corner_radius=self._px(10), show="•",
             fg_color=COLOR_ENTRY_BG, border_color=COLOR_TRACK, text_color=COLOR_WHITE,
+            font=ctk.CTkFont(size=max(12, self._px(13))),
         )
         self.password_entry.pack(fill="x", pady=(self._px(4), self._px(12)))
 
         confirm_label_text = "Confirm New Password" if self.is_edit else "Confirm Password"
         ctk.CTkLabel(
             wrapper, text=confirm_label_text, anchor="w",
-            font=ctk.CTkFont(size=max(9, self._px(11))), text_color=COLOR_ACCENT_SOFT,
+            font=ctk.CTkFont(size=max(12, self._px(13))), text_color=COLOR_ACCENT_SOFT,
         ).pack(anchor="w")
         self.confirm_password_entry = ctk.CTkEntry(
             wrapper, height=entry_h, corner_radius=self._px(10), show="•",
             fg_color=COLOR_ENTRY_BG, border_color=COLOR_TRACK, text_color=COLOR_WHITE,
+            font=ctk.CTkFont(size=max(12, self._px(13))),
         )
         self.confirm_password_entry.pack(fill="x", pady=(self._px(4), self._px(4)))
 
         self.error_label = ctk.CTkLabel(
             wrapper, text="", anchor="w", text_color=COLOR_DANGER,
-            font=ctk.CTkFont(size=max(9, self._px(11))), wraplength=self._px(360),
+            font=ctk.CTkFont(size=max(12, self._px(13))), wraplength=self._px(360),
         )
         self.error_label.pack(anchor="w", pady=(self._px(4), self._px(8)))
 
@@ -399,7 +403,7 @@ class AdminFormDialog(ctk.CTkToplevel):
             btn_row, text="Cancel", height=max(30, self._px(38)),
             corner_radius=self._px(10), fg_color="transparent",
             border_width=1, border_color=COLOR_TRACK, hover_color=COLOR_TRACK,
-            text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(10, self._px(12))),
+            text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(12, self._px(13))),
             command=self.destroy,
         ).grid(row=0, column=0, sticky="ew", padx=(0, self._px(8)))
 
@@ -407,7 +411,7 @@ class AdminFormDialog(ctk.CTkToplevel):
             btn_row, text="Save Changes" if self.is_edit else "Create Admin",
             height=max(30, self._px(38)), corner_radius=self._px(10),
             fg_color=COLOR_ACCENT, hover_color="#26B79A", text_color="#0B3D3A",
-            font=ctk.CTkFont(size=max(10, self._px(12)), weight="bold"),
+            font=ctk.CTkFont(size=max(12, self._px(13)), weight="bold"),
             command=self._save,
         ).grid(row=0, column=1, sticky="ew", padx=(self._px(8), 0))
 
@@ -578,12 +582,12 @@ class AdminDashboard(ctk.CTk):
         title_box.pack(side="left", padx=(self._px(10), 0))
         ctk.CTkLabel(
             title_box, text="NutriAI", anchor="w",
-            font=ctk.CTkFont(family="Segoe UI", size=max(13, self._px(16)), weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=max(16, self._px(18)), weight="bold"),
             text_color=COLOR_WHITE,
         ).pack(anchor="w")
         ctk.CTkLabel(
             title_box, text="Admin Panel", anchor="w",
-            font=ctk.CTkFont(family="Segoe UI", size=max(9, self._px(10))),
+            font=ctk.CTkFont(family="Segoe UI", size=max(11, self._px(12))),
             text_color=COLOR_ACCENT_SOFT,
         ).pack(anchor="w")
 
@@ -593,7 +597,7 @@ class AdminDashboard(ctk.CTk):
         # items swap the main content area; action items (Logout) fire
         # their command straight away and are visually separated with a
         # divider above them.
-        nav_font = ctk.CTkFont(family="Segoe UI", size=max(11, self._px(13)))
+        nav_font = ctk.CTkFont(family="Segoe UI", size=max(13, self._px(14)))
         for key, icon, label, is_action in self.NAV_ITEMS:
             if is_action:
                 ctk.CTkFrame(sidebar, height=1, fg_color=COLOR_TRACK).pack(
@@ -630,7 +634,7 @@ class AdminDashboard(ctk.CTk):
             admin_row, text=self._initials(self.admin_data.get("full_name", "Admin")),
             width=self._px(34), height=self._px(34), corner_radius=self._px(17),
             fg_color=COLOR_ACCENT, text_color="#0B3D3A",
-            font=ctk.CTkFont(size=max(10, self._px(12)), weight="bold"),
+            font=ctk.CTkFont(size=max(12, self._px(13)), weight="bold"),
         )
         avatar.pack(side="left")
 
@@ -638,12 +642,12 @@ class AdminDashboard(ctk.CTk):
         name_box.pack(side="left", padx=(self._px(8), 0))
         ctk.CTkLabel(
             name_box, text=self.admin_data.get("full_name", "Admin"), anchor="w",
-            font=ctk.CTkFont(size=max(10, self._px(12)), weight="bold"),
+            font=ctk.CTkFont(size=max(12, self._px(13)), weight="bold"),
             text_color=COLOR_WHITE,
         ).pack(anchor="w")
         ctk.CTkLabel(
             name_box, text="Administrator", anchor="w",
-            font=ctk.CTkFont(size=max(8, self._px(9))),
+            font=ctk.CTkFont(size=max(10, self._px(11))),
             text_color=COLOR_ACCENT_SOFT,
         ).pack(anchor="w")
 
@@ -686,14 +690,14 @@ class AdminDashboard(ctk.CTk):
 
         self.page_title_label = ctk.CTkLabel(
             self.header, text="Dashboard", anchor="w",
-            font=ctk.CTkFont(family="Segoe UI", size=max(16, self._px(22)), weight="bold"),
+            font=ctk.CTkFont(family="Segoe UI", size=max(18, self._px(22)), weight="bold"),
             text_color=COLOR_WHITE,
         )
         self.page_title_label.grid(row=0, column=0, sticky="w")
 
         self.page_subtitle_label = ctk.CTkLabel(
             self.header, text="A quick look at how the app is being used", anchor="w",
-            font=ctk.CTkFont(size=max(9, self._px(11))),
+            font=ctk.CTkFont(size=max(11, self._px(12))),
             text_color=COLOR_ACCENT_SOFT,
         )
         self.page_subtitle_label.grid(row=1, column=0, sticky="w")
@@ -802,12 +806,12 @@ class AdminDashboard(ctk.CTk):
         header_row.pack(fill="x", padx=self._px(18), pady=(self._px(16), self._px(6)))
         ctk.CTkLabel(
             header_row, text="Recently Registered Users", anchor="w",
-            font=ctk.CTkFont(size=max(11, self._px(14)), weight="bold"),
+            font=ctk.CTkFont(size=max(14, self._px(15)), weight="bold"),
             text_color=COLOR_WHITE,
         ).pack(side="left")
         ctk.CTkButton(
             header_row, text="View all →", fg_color="transparent", hover=False,
-            text_color=COLOR_ACCENT, font=ctk.CTkFont(size=max(9, self._px(11)), underline=True),
+            text_color=COLOR_ACCENT, font=ctk.CTkFont(size=max(11, self._px(12)), underline=True),
             width=20, command=lambda: self.show_page("users"),
         ).pack(side="right")
 
@@ -838,12 +842,12 @@ class AdminDashboard(ctk.CTk):
         ).pack(anchor="w")
         ctk.CTkLabel(
             inner, text=value, anchor="w",
-            font=ctk.CTkFont(size=max(16, self._px(22)), weight="bold"),
+            font=ctk.CTkFont(size=max(18, self._px(22)), weight="bold"),
             text_color=COLOR_WHITE,
         ).pack(anchor="w", pady=(self._px(6), 0))
         ctk.CTkLabel(
             inner, text=label, anchor="w",
-            font=ctk.CTkFont(size=max(9, self._px(11))),
+            font=ctk.CTkFont(size=max(12, self._px(13))),
             text_color=COLOR_ACCENT_SOFT,
         ).pack(anchor="w")
         return card
@@ -862,6 +866,7 @@ class AdminDashboard(ctk.CTk):
             search_row, placeholder_text="Search by name or email…",
             height=max(30, self._px(36)), corner_radius=self._px(10),
             fg_color=COLOR_ENTRY_BG, border_color=COLOR_TRACK, text_color=COLOR_WHITE,
+            font=ctk.CTkFont(size=max(12, self._px(13))),
         )
         self.user_search_entry.grid(row=0, column=0, sticky="ew", padx=(0, self._px(10)))
         self.user_search_entry.bind("<Return>", lambda _e: self._refresh_users_table())
@@ -869,7 +874,7 @@ class AdminDashboard(ctk.CTk):
         ctk.CTkButton(
             search_row, text="Search", width=self._px(90), height=max(30, self._px(36)),
             corner_radius=self._px(10), fg_color=COLOR_ACCENT, hover_color="#26B79A",
-            text_color="#0B3D3A", font=ctk.CTkFont(size=max(10, self._px(12)), weight="bold"),
+            text_color="#0B3D3A", font=ctk.CTkFont(size=max(12, self._px(13)), weight="bold"),
             command=self._refresh_users_table,
         ).grid(row=0, column=1)
 
@@ -894,7 +899,7 @@ class AdminDashboard(ctk.CTk):
         if not users:
             ctk.CTkLabel(
                 self.users_table_area, text="No matching users found.",
-                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(10, self._px(12))),
+                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(12, self._px(13))),
             ).pack(pady=self._px(20))
             return
 
@@ -940,6 +945,7 @@ class AdminDashboard(ctk.CTk):
             search_row, placeholder_text="Search by name or email…",
             height=max(30, self._px(36)), corner_radius=self._px(10),
             fg_color=COLOR_ENTRY_BG, border_color=COLOR_TRACK, text_color=COLOR_WHITE,
+            font=ctk.CTkFont(size=max(12, self._px(13))),
         )
         self.diet_records_search_entry.grid(row=0, column=0, sticky="ew", padx=(0, self._px(10)))
         self.diet_records_search_entry.bind("<Return>", lambda _e: self._refresh_diet_records_table())
@@ -947,7 +953,7 @@ class AdminDashboard(ctk.CTk):
         ctk.CTkButton(
             search_row, text="Search", width=self._px(90), height=max(30, self._px(36)),
             corner_radius=self._px(10), fg_color=COLOR_ACCENT, hover_color="#26B79A",
-            text_color="#0B3D3A", font=ctk.CTkFont(size=max(10, self._px(12)), weight="bold"),
+            text_color="#0B3D3A", font=ctk.CTkFont(size=max(12, self._px(13)), weight="bold"),
             command=self._refresh_diet_records_table,
         ).grid(row=0, column=1)
 
@@ -972,7 +978,7 @@ class AdminDashboard(ctk.CTk):
         if not records:
             ctk.CTkLabel(
                 self.diet_records_table_area, text="No AI diet plans have been generated yet.",
-                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(10, self._px(12))),
+                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(12, self._px(13))),
             ).pack(pady=self._px(20))
             return
 
@@ -1003,6 +1009,7 @@ class AdminDashboard(ctk.CTk):
             search_row, placeholder_text="Search by name or email…",
             height=max(30, self._px(36)), corner_radius=self._px(10),
             fg_color=COLOR_ENTRY_BG, border_color=COLOR_TRACK, text_color=COLOR_WHITE,
+            font=ctk.CTkFont(size=max(12, self._px(13))),
         )
         self.meal_history_search_entry.grid(row=0, column=0, sticky="ew", padx=(0, self._px(10)))
         self.meal_history_search_entry.bind("<Return>", lambda _e: self._refresh_meal_history_table())
@@ -1010,7 +1017,7 @@ class AdminDashboard(ctk.CTk):
         ctk.CTkButton(
             search_row, text="Search", width=self._px(90), height=max(30, self._px(36)),
             corner_radius=self._px(10), fg_color=COLOR_ACCENT, hover_color="#26B79A",
-            text_color="#0B3D3A", font=ctk.CTkFont(size=max(10, self._px(12)), weight="bold"),
+            text_color="#0B3D3A", font=ctk.CTkFont(size=max(12, self._px(13)), weight="bold"),
             command=self._refresh_meal_history_table,
         ).grid(row=0, column=1)
 
@@ -1035,7 +1042,7 @@ class AdminDashboard(ctk.CTk):
         if not slots:
             ctk.CTkLabel(
                 self.meal_history_table_area, text="No meal plans have been saved yet.",
-                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(10, self._px(12))),
+                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(12, self._px(13))),
             ).pack(pady=self._px(20))
             return
 
@@ -1070,7 +1077,7 @@ class AdminDashboard(ctk.CTk):
         if not feedback_rows:
             ctk.CTkLabel(
                 scroll, text="No feedback submitted yet.",
-                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(10, self._px(12))),
+                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(12, self._px(13))),
             ).pack(pady=self._px(20))
             return
 
@@ -1083,21 +1090,21 @@ class AdminDashboard(ctk.CTk):
 
             ctk.CTkLabel(
                 top, text="★" * row["rating"] + "☆" * (5 - row["rating"]),
-                text_color=COLOR_ACCENT, font=ctk.CTkFont(size=max(11, self._px(13))),
+                text_color=COLOR_ACCENT, font=ctk.CTkFont(size=max(13, self._px(15))),
             ).pack(side="left")
             ctk.CTkLabel(
                 top, text=f'{row["full_name"]}  ·  {row["email"]}',
-                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(9, self._px(10))),
+                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(11, self._px(12))),
             ).pack(side="left", padx=(self._px(10), 0))
             ctk.CTkLabel(
                 top, text=self._fmt_date(row["created_at"]),
-                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(9, self._px(10))),
+                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(11, self._px(12))),
             ).pack(side="right")
 
             if row["comment"]:
                 ctk.CTkLabel(
                     card, text=row["comment"], anchor="w", justify="left", wraplength=self._px(900),
-                    text_color=COLOR_WHITE, font=ctk.CTkFont(size=max(10, self._px(12))),
+                    text_color=COLOR_WHITE, font=ctk.CTkFont(size=max(12, self._px(13))),
                 ).pack(fill="x", padx=self._px(16), pady=(0, self._px(12)))
             else:
                 ctk.CTkFrame(card, height=self._px(6), fg_color="transparent").pack()
@@ -1115,7 +1122,7 @@ class AdminDashboard(ctk.CTk):
         ctk.CTkLabel(
             inner, text=f'Signed in as {self.admin_data.get("full_name", "Admin")}  ·  '
                         f'{self.admin_data.get("email", "")}',
-            anchor="w", font=ctk.CTkFont(size=max(9, self._px(11))),
+            anchor="w", font=ctk.CTkFont(size=max(11, self._px(12))),
             text_color=COLOR_ACCENT_SOFT,
         ).pack(anchor="w")
 
@@ -1128,6 +1135,7 @@ class AdminDashboard(ctk.CTk):
             search_row, placeholder_text="Search admins by name or email…",
             height=max(30, self._px(36)), corner_radius=self._px(10),
             fg_color=COLOR_ENTRY_BG, border_color=COLOR_TRACK, text_color=COLOR_WHITE,
+            font=ctk.CTkFont(size=max(12, self._px(13))),
         )
         self.admin_search_entry.grid(row=0, column=0, sticky="ew", padx=(0, self._px(10)))
         self.admin_search_entry.bind("<Return>", lambda _e: self._refresh_admin_management_table())
@@ -1136,14 +1144,14 @@ class AdminDashboard(ctk.CTk):
             search_row, text="Search", width=self._px(90), height=max(30, self._px(36)),
             corner_radius=self._px(10), fg_color="transparent",
             border_width=1, border_color=COLOR_ACCENT, hover_color=COLOR_TRACK,
-            text_color=COLOR_ACCENT, font=ctk.CTkFont(size=max(10, self._px(12)), weight="bold"),
+            text_color=COLOR_ACCENT, font=ctk.CTkFont(size=max(12, self._px(13)), weight="bold"),
             command=self._refresh_admin_management_table,
         ).grid(row=0, column=1, padx=(0, self._px(10)))
 
         ctk.CTkButton(
             search_row, text="+ Add Admin", width=self._px(130), height=max(30, self._px(36)),
             corner_radius=self._px(10), fg_color=COLOR_ACCENT, hover_color="#26B79A",
-            text_color="#0B3D3A", font=ctk.CTkFont(size=max(10, self._px(12)), weight="bold"),
+            text_color="#0B3D3A", font=ctk.CTkFont(size=max(12, self._px(13)), weight="bold"),
             command=lambda: self._open_admin_dialog(existing_admin=None),
         ).grid(row=0, column=2)
 
@@ -1168,7 +1176,7 @@ class AdminDashboard(ctk.CTk):
         if not admins:
             ctk.CTkLabel(
                 self.admin_mgmt_table_area, text="No matching admins found.",
-                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(10, self._px(12))),
+                text_color=COLOR_ACCENT_SOFT, font=ctk.CTkFont(size=max(12, self._px(13))),
             ).pack(pady=self._px(20))
             return
 
@@ -1178,13 +1186,13 @@ class AdminDashboard(ctk.CTk):
         for i, (_label, weight) in enumerate(columns):
             container.grid_columnconfigure(i, weight=weight)
 
-        header_font = ctk.CTkFont(size=max(9, self._px(11)), weight="bold")
+        header_font = ctk.CTkFont(size=max(11, self._px(12)), weight="bold")
         for col, (label, _weight) in enumerate(columns):
             ctk.CTkLabel(
                 container, text=label, anchor="w", text_color=COLOR_ACCENT_SOFT, font=header_font,
             ).grid(row=0, column=col, sticky="ew", padx=(0, self._px(8)), pady=(0, self._px(8)))
 
-        row_font = ctk.CTkFont(size=max(9, self._px(11)))
+        row_font = ctk.CTkFont(size=max(12, self._px(13)))
         for r, admin in enumerate(admins, start=1):
             row_bg = COLOR_BG if r % 2 == 0 else "transparent"
             is_default = admin["email"] == database.DEFAULT_ADMIN_EMAIL
@@ -1210,7 +1218,7 @@ class AdminDashboard(ctk.CTk):
                 actions, text="Edit", width=self._px(60), height=self._px(26),
                 corner_radius=self._px(8), fg_color="transparent",
                 border_width=1, border_color=COLOR_ACCENT, hover_color=COLOR_TRACK,
-                text_color=COLOR_ACCENT, font=ctk.CTkFont(size=max(8, self._px(10))),
+                text_color=COLOR_ACCENT, font=ctk.CTkFont(size=max(11, self._px(12))),
                 command=lambda a=admin: self._open_admin_dialog(existing_admin=a),
             ).pack(side="left", padx=(0, self._px(6)))
 
@@ -1218,7 +1226,7 @@ class AdminDashboard(ctk.CTk):
                 actions, text="Delete", width=self._px(60), height=self._px(26),
                 corner_radius=self._px(8), fg_color="transparent",
                 border_width=1, border_color=COLOR_DANGER, hover_color=COLOR_TRACK,
-                text_color=COLOR_DANGER, font=ctk.CTkFont(size=max(8, self._px(10))),
+                text_color=COLOR_DANGER, font=ctk.CTkFont(size=max(11, self._px(12))),
                 command=lambda a=admin: self._confirm_delete_admin(a["email"], a["full_name"]),
             )
             if is_default:
@@ -1265,13 +1273,13 @@ class AdminDashboard(ctk.CTk):
         for i, (_label, weight) in enumerate(columns):
             container.grid_columnconfigure(i, weight=weight)
 
-        header_font = ctk.CTkFont(size=max(9, self._px(11)), weight="bold")
+        header_font = ctk.CTkFont(size=max(11, self._px(12)), weight="bold")
         for col, (label, _weight) in enumerate(columns):
             ctk.CTkLabel(
                 container, text=label, anchor="w", text_color=COLOR_ACCENT_SOFT, font=header_font,
             ).grid(row=0, column=col, sticky="ew", padx=(0, self._px(8)), pady=(0, self._px(8)))
 
-        row_font = ctk.CTkFont(size=max(9, self._px(11)))
+        row_font = ctk.CTkFont(size=max(12, self._px(13)))
         for r, row_data in enumerate(rows, start=1):
             row_bg = COLOR_BG if r % 2 == 0 else "transparent"
             for col, cell in enumerate(row_data):
@@ -1281,7 +1289,7 @@ class AdminDashboard(ctk.CTk):
                         container, text=text, width=self._px(70), height=self._px(26),
                         corner_radius=self._px(8), fg_color="transparent",
                         border_width=1, border_color=COLOR_DANGER, hover_color=COLOR_TRACK,
-                        text_color=COLOR_DANGER, font=ctk.CTkFont(size=max(8, self._px(10))),
+                        text_color=COLOR_DANGER, font=ctk.CTkFont(size=max(11, self._px(12))),
                         command=callback,
                     ).grid(row=r, column=col, sticky="w", padx=(0, self._px(8)), pady=self._px(4))
                 else:
@@ -1301,7 +1309,7 @@ class AdminDashboard(ctk.CTk):
     def _show_db_error(self, parent, db_err):
         ctk.CTkLabel(
             parent, text=f"Database error: {db_err}", text_color=COLOR_DANGER,
-            font=ctk.CTkFont(size=max(10, self._px(12))), wraplength=self._px(700),
+            font=ctk.CTkFont(size=max(12, self._px(13))), wraplength=self._px(700),
         ).pack(pady=self._px(20))
 
     def _handle_logout(self):
