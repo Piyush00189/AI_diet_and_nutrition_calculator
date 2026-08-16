@@ -499,6 +499,9 @@ class AdminDashboard(ctk.CTk):
         ctk.set_appearance_mode("dark")
         self.title("AI Diet Chart & Nutrition Calculator — Admin Dashboard")
         self.configure(fg_color=COLOR_BG)
+        # Start centered at the computed responsive size (used purely as a
+        # fallback / pre-maximize geometry — see _maximize_window below,
+        # which takes over once the window is fully built).
         self._center_window(self.win_w, self.win_h)
         self.minsize(MIN_W, MIN_H)
         self.resizable(True, True)
@@ -514,6 +517,43 @@ class AdminDashboard(ctk.CTk):
         # construction if it ever needed to redirect. Later, user-driven
         # navigation clicks go through the normal post-startup check.
         self.show_page("overview", _verify_session=False)
+
+        # Deferred, not called directly: CustomTkinter schedules some of
+        # its own window/DPI setup via internal after() calls right after
+        # the window is created, and that runs *after* this __init__
+        # returns — maximizing immediately here would get silently
+        # overwritten back to a small centered window once that later
+        # setup runs. Queuing it with after() instead lets it apply after
+        # that setup has settled (same approach as dashboard.py).
+        self.after(10, self._maximize_window)
+
+    # ------------------------------------------------------------ window state
+    def _maximize_window(self):
+        """Opens the admin dashboard filling the screen instead of a
+        smaller centered window. `state('zoomed')` is the normal way to
+        do this on Windows and most Linux window managers; macOS's Tk
+        build doesn't support that state string and raises a TclError,
+        so it falls back to `-zoomed` (some Linux WMs use this attribute
+        instead), and finally to manually sizing/positioning the window
+        to the full screen if neither is available."""
+        maximized = False
+        try:
+            self.state("zoomed")
+            maximized = True
+        except Exception:
+            pass
+
+        if not maximized:
+            try:
+                self.attributes("-zoomed", True)
+                maximized = True
+            except Exception:
+                pass
+
+        if not maximized:
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            self.geometry(f"{screen_w}x{screen_h}+0+0")
 
     # ------------------------------------------------------------ access control
     def _deny_access(self):
